@@ -2,6 +2,7 @@ module Data.Record.Fold
   ( class Step
   , class FoldR
   , class Fold
+  , class FoldMap
   , ApplyS
   , applyTo
   , AppCat
@@ -71,23 +72,31 @@ instance foldRecord
   fold stepper r = foldR stepper (RLProxy :: RLProxy list) r
 
 
-newtype FoldMapS m = FoldMapS (forall a. a -> m)
+newtype FoldMapS m = FoldMapS (forall a n. IsSymbol n => SProxy n ->  a -> m)
 
-instance foldMapStep :: (Semigroup m) => Step (FoldMapS m) lbl a (m -> m) where
-  step (FoldMapS f) _ a m = f a <> m
+instance foldMapStep :: (IsSymbol lbl, Semigroup m) => Step (FoldMapS m) lbl a (m -> m) where
+  step (FoldMapS f) s a m = f s a <> m
+
+class (Fold (FoldMapS m) r (m -> m)) <= FoldMap r m
 
 rFoldMap
   ::  forall m r
    . Monoid m
-  => Fold (FoldMapS m) r (m -> m)
-  => (forall a. a -> m) -> r -> m
+  => FoldMap r m
+  => (forall a n. IsSymbol n => SProxy n -> a -> m) -> r -> m
 rFoldMap f r = fold (FoldMapS f) r $ mempty
 
 length
   :: forall r
-   . Fold (FoldMapS (Additive Int)) r ((Additive Int) -> (Additive Int))
+   . FoldMap r (Additive Int)
   => r -> Int
-length = unwrap <<< rFoldMap (const $ Additive 1)
+length = unwrap <<< rFoldMap (const $ const $ Additive 1)
+
+labels
+  :: forall r
+   . FoldMap r (Array String)
+  => r -> Array String
+labels = rFoldMap (\s _ -> [reflectSymbol s])
 
 
 type Res = Array (Tuple String String)
@@ -118,7 +127,7 @@ instance mapStep ::
 rMap
   :: forall f r res
    . Fold (MapS f) r (Builder {} (Record res))
-  => (forall a. a -> f a) -> r → Record res
+  => (forall a. a -> f a) -> r -> Record res
 rMap f r =
   let
     builder = fold (MapS f) r

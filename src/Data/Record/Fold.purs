@@ -24,6 +24,7 @@ module Data.Record.Fold
 import Prelude
 
 import Data.Array (cons)
+import Data.List (List, (:))
 import Data.Monoid (class Monoid, mempty)
 import Data.Monoid.Additive (Additive(..))
 import Data.Newtype (unwrap)
@@ -92,11 +93,21 @@ length
   => r -> Int
 length = unwrap <<< rFoldMap (const $ const $ Additive 1)
 
+newtype Endo a = Endo (a -> a)
+instance semigroupMonorphic :: Semigroup (Endo a) where
+  append (Endo f1) (Endo f2) = Endo $ f1 <<< f2
+instance monoidEndo :: Monoid (Endo a) where
+  mempty = Endo id
+
 labels
   :: forall r
-   . FoldMap r (Array String)
-  => r -> Array String
-labels = rFoldMap (\s _ -> [reflectSymbol s])
+   . FoldMap r (Endo (List String))
+  => r -> List String
+labels r =
+  let
+    Endo run = rFoldMap (\s _ -> (Endo (\a -> reflectSymbol s : a))) r
+  in
+    run mempty
 
 
 type Res = Array (Tuple String String)

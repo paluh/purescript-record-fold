@@ -94,7 +94,7 @@ length
 length = unwrap <<< rFoldMap (const $ const $ Additive 1)
 
 newtype Endo a = Endo (a -> a)
-instance semigroupMonorphic :: Semigroup (Endo a) where
+instance semigroupEndo :: Semigroup (Endo a) where
   append (Endo f1) (Endo f2) = Endo $ f1 <<< f2
 instance monoidEndo :: Monoid (Endo a) where
   mempty = Endo id
